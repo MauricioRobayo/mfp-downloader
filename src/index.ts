@@ -19,11 +19,11 @@ async function main() {
   let feed = await parser.parseURL("https://musicforprogramming.net/rss.xml");
 
   const chunk: string[] = [];
-  const chunkSize = 2;
+  const chunkSize = 5;
 
   const urls = [...feed.items];
 
-  for (const url of urls.slice(0, 8)) {
+  for (const url of urls) {
     if (url.enclosure?.url) {
       chunk.push(url.enclosure.url);
       if (chunk.length >= chunkSize) {
