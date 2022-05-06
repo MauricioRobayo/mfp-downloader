@@ -21,23 +21,28 @@ async function main() {
   const chunk: string[] = [];
   const chunkSize = 5;
 
-  const urls = [...feed.items];
+  const items = [...feed.items].filter(hasEnclosure);
 
-  let remainingFiles = urls.length;
+  console.log(`Found ${items.length} episodes with mp3 files.`);
 
-  for (const url of urls) {
-    if (url.enclosure?.url) {
-      chunk.push(url.enclosure.url);
-      if (chunk.length >= chunkSize) {
-        displayDownloadProgress(chunk.length, (remainingFiles -= chunk.length));
-        await Promise.all(
-          chunk.map((url) => {
-            const fileName = url.replace(/.*\//, "");
-            return downloadMp3(url, fileName);
-          })
-        );
-        chunk.length = 0;
-        await politelyWait();
+  let remainingFiles = items.length;
+
+  for (const item of items) {
+    chunk.push(item.enclosure.url);
+    if (chunk.length >= chunkSize) {
+      displayDownloadProgress(chunk.length, (remainingFiles -= chunk.length));
+      await Promise.all(
+        chunk.map((url) => {
+          const fileName = url.replace(/.*\//, "");
+          return downloadMp3(url, fileName);
+        })
+      );
+      chunk.length = 0;
+
+      if (remainingFiles > 0) {
+        const wait = randBetween(2, 5);
+        console.log(`Politely waiting ${wait} seconds...`);
+        await new Promise((resolve) => setTimeout(resolve, wait * 1000));
       }
     }
   }
@@ -47,18 +52,20 @@ async function main() {
     await Promise.all(
       chunk.map((url) => {
         const fileName = url.replace(/.*\//, "");
-        downloadMp3(url, fileName);
+        return downloadMp3(url, fileName);
       })
     );
   }
+
+  console.log("Done!");
 }
 
-async function downloadMp3(url: string, fileName: string) {
+async function downloadMp3(url: string, filename: string) {
   const downloadsDir = path.join(process.cwd(), "downloads");
-  const file = path.join(downloadsDir, fileName);
+  const file = path.join(downloadsDir, filename);
   try {
     await access(file);
-    console.log(`${url} already downloaded!`);
+    console.log(`'${filename}' already downloaded!`);
     return;
   } catch (e) {
     try {
@@ -68,15 +75,9 @@ async function downloadMp3(url: string, fileName: string) {
       data.pipe(writer);
       return finished(writer);
     } catch (e) {
-      console.log(`Failed downloading ${url}!`);
+      console.log(`Failed downloading '${filename}'!`);
     }
   }
-}
-
-function politelyWait() {
-  const wait = randBetween(2, 5);
-  console.log(`Politely waiting ${wait}  seconds...`);
-  return new Promise((resolve) => setTimeout(resolve, wait));
 }
 
 function randBetween(min: number, max: number): number {
@@ -90,6 +91,10 @@ function displayDownloadProgress(
   console.log(
     `Downloading ${currentDownloads} files, remaining ${remaining}. Please wait...`
   );
+}
+
+function hasEnclosure(item: any): item is { enclosure: { url: string } } {
+  return "enclosure" in item && item.enclosure.url?.endsWith(".mp3");
 }
 
 main();
