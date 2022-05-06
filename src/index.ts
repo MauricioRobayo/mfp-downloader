@@ -23,11 +23,13 @@ async function main() {
 
   const urls = [...feed.items];
 
+  let remainingFiles = urls.length;
+
   for (const url of urls) {
     if (url.enclosure?.url) {
       chunk.push(url.enclosure.url);
       if (chunk.length >= chunkSize) {
-        console.log("Downloading " + chunk.length + " files...");
+        displayDownloadProgress(chunk.length, (remainingFiles -= chunk.length));
         await Promise.all(
           chunk.map((url) => {
             const fileName = url.replace(/.*\//, "");
@@ -35,14 +37,13 @@ async function main() {
           })
         );
         chunk.length = 0;
-        console.log("Politely waiting 2 seconds...");
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await politelyWait();
       }
     }
   }
 
   if (chunk.length > 0) {
-    console.log("Downloading " + chunk.length + " files...");
+    displayDownloadProgress(chunk.length, (remainingFiles -= chunk.length));
     await Promise.all(
       chunk.map((url) => {
         const fileName = url.replace(/.*\//, "");
@@ -57,7 +58,7 @@ async function downloadMp3(url: string, fileName: string) {
   const file = path.join(downloadsDir, fileName);
   try {
     await access(file);
-    console.log(`${file} already downloaded!`);
+    console.log(`${url} already downloaded!`);
     return;
   } catch (e) {
     try {
@@ -70,6 +71,25 @@ async function downloadMp3(url: string, fileName: string) {
       console.log(`Failed downloading ${url}!`);
     }
   }
+}
+
+function politelyWait() {
+  const wait = randBetween(2, 5);
+  console.log(`Politely waiting ${wait}  seconds...`);
+  return new Promise((resolve) => setTimeout(resolve, wait));
+}
+
+function randBetween(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function displayDownloadProgress(
+  currentDownloads: number,
+  remaining: number
+): void {
+  console.log(
+    `Downloading ${currentDownloads} files, remaining ${remaining}. Please wait...`
+  );
 }
 
 main();
